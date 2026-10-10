@@ -9,6 +9,12 @@ does not embed `struct delayed_work` or `struct timer_list`. Those structures
 are configuration-dependent and a layout mismatch can corrupt the kernel timer
 wheel even though the module itself loads successfully.
 
+After loading, `load.sh` waits for `/dev/ntsync` to settle, reapplies mode
+`0666`, and refreshes its SELinux context to `u:object_r:gpu_device:s0`. This
+keeps the device accessible to normal applications and containers even when
+Android `ueventd` replaces the initial permissions with its default
+`0600 root:root`.
+
 ## Requirements
 
 - An arm64 GKI device running KernelSU with `ksud insmod` kallsyms relocation support.
@@ -86,3 +92,6 @@ Use the same executable, host, Wine version, CPU governor, and command line for 
 ## Source provenance
 
 The driver implementation is vendored at `driver/mainline/ntsync.c`, licensed GPL-2.0-only. `driver/gki_ntsync.c` adds the minimal Android GKI, 5.10 compatibility, and KernelSU device-node integration.
+
+The upstream driver author metadata is preserved in `ntsync.c`. The KernelSU
+module author field identifies the downstream packager.

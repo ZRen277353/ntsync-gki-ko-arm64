@@ -1,6 +1,6 @@
 [project]
 name = "ntsync-gki"
-version = "0.0.2"
+version = "0.0.3"
 description = "KernelSU-packaged ntsync module for Android GKI"
 requires-python = ">=3.11"
 dependencies = [
