@@ -20,27 +20,26 @@
 #include "mainline/ntsync.c"
 #undef module_misc_device
 
-#include <linux/delay.h>
 #include <linux/namei.h>
 #include <linux/path.h>
 #include <linux/user_namespace.h>
-#include <linux/workqueue.h>
 #include <linux/xattr.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
 #include <linux/mnt_idmapping.h>
 #endif
 
-static struct delayed_work ntsync_perm_work;
-
-static void ntsync_fix_perms_worker(struct work_struct *work)
+/*
+ * Keep device setup synchronous. Embedding a delayed_work or timer_list in a
+ * module makes the running kernel interpret a configuration-dependent
+ * structure layout. A mismatch can corrupt the timer wheel during module init.
+ */
+static void ntsync_fix_perms(void)
 {
 	static const char context[] = "u:object_r:gpu_device:s0";
 	struct path path;
 	struct inode *inode;
 	int ret;
-
-	(void)work;
 
 	ret = kern_path("/dev/ntsync", LOOKUP_FOLLOW, &path);
 	if (ret)
@@ -52,13 +51,15 @@ static void ntsync_fix_perms_worker(struct work_struct *work)
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 12, 0)
 	ret = __vfs_setxattr_noperm(path.dentry, "security.selinux", context,
-				      sizeof(context), 0);
+				      sizeof(context) - 1, 0);
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0)
 	ret = __vfs_setxattr_noperm(&init_user_ns, path.dentry,
-				      "security.selinux", context, sizeof(context), 0);
+				      "security.selinux", context,
+				      sizeof(context) - 1, 0);
 #else
 	ret = __vfs_setxattr_noperm(&nop_mnt_idmap, path.dentry,
-				      "security.selinux", context, sizeof(context), 0);
+				      "security.selinux", context,
+				      sizeof(context) - 1, 0);
 #endif
 	if (ret)
 		pr_warn("ntsync: failed to set SELinux context: %d\n", ret);
@@ -77,14 +78,12 @@ static int __init gki_ntsync_init(void)
 	if (ret)
 		return ret;
 
-	INIT_DELAYED_WORK(&ntsync_perm_work, ntsync_fix_perms_worker);
-	schedule_delayed_work(&ntsync_perm_work, msecs_to_jiffies(2000));
+	ntsync_fix_perms();
 	return 0;
 }
 
 static void __exit gki_ntsync_exit(void)
 {
-	cancel_delayed_work_sync(&ntsync_perm_work);
 	misc_deregister(&ntsync_misc);
 }
 

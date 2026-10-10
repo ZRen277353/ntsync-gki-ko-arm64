@@ -4,6 +4,11 @@
 
 At boot, the module calls `ksud insmod`. This KernelSU loader resolves relocations through kallsyms, so GKI symbols do not need to appear in the normal exported-symbol table. The build intentionally sets `KBUILD_MODPOST_WARN=1` for that reason.
 
+The GKI wrapper configures `/dev/ntsync` synchronously during module init and
+does not embed `struct delayed_work` or `struct timer_list`. Those structures
+are configuration-dependent and a layout mismatch can corrupt the kernel timer
+wheel even though the module itself loads successfully.
+
 ## Requirements
 
 - An arm64 GKI device running KernelSU with `ksud insmod` kallsyms relocation support.

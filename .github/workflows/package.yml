@@ -30,6 +30,8 @@ jobs:
             mkdir -p "build/modules/$target"
             cp "build/artifacts/gki_ntsync-$target/gki_ntsync.ko" "build/modules/$target/gki_ntsync.ko"
           done < <(jq -r '.targets[].id' config/targets.json)
+      - name: Check modules for unsafe timer references
+        run: uv run python tools/check_module.py build/modules/*/gki_ntsync.ko
       - name: Package KernelSU module
         run: |
           uv run python tools/package_module.py \
